@@ -72,6 +72,7 @@ export default function App() {
     const [endTime, setEndTime] = useState(null)
     const [attempts, setAttempts] = useState(0)
     const [isGameOver, setIsGameOver] = useState(false)
+    const [disableClicks, setDisableClicks] = useState(false)
 
     const timeoutRef = useRef(null)
 
@@ -110,7 +111,8 @@ export default function App() {
         if (
             flippedCards.length === 2 ||
             flippedCards.includes(index) ||
-            matched.includes(cards[index].content)
+            matched.includes(cards[index].content) ||
+            disableClicks
         )
             return
 
@@ -121,16 +123,19 @@ export default function App() {
             setAttempts((prev) => prev + 1)
             const [first, second] = newFlipped
             if (cards[first].content === cards[second].content) {
-                setMatched((prev) => [...prev, cards[first].content])
+                const newMatched = [...matched, cards[first].content]
+                setMatched(newMatched)
                 setFlippedCards([])
 
-                if (matched.length + 1 === cards.length / 2) {
+                if (newMatched.length === cards.length / 2) {
                     setEndTime(Date.now())
                     setIsGameOver(true)
                 }
             } else {
+                setDisableClicks(true)
                 timeoutRef.current = setTimeout(() => {
                     setFlippedCards([])
+                    setDisableClicks(false)
                 }, 1000)
             }
         }
@@ -144,6 +149,18 @@ export default function App() {
             if (!confirmReset) return
         }
         setDifficulty(newDifficulty)
+    }
+
+    const playAgain = () => {
+        startNewGame()
+    }
+
+    const formatTime = (ms) => {
+        const seconds = Math.floor((ms || 0) / 1000)
+        return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(
+            2,
+            "0"
+        )}`
     }
 
     return (
@@ -184,6 +201,37 @@ export default function App() {
                     </div>
                 ))}
             </section>
+
+            {isGameOver ? (
+                <section>
+                    <h2>🎉 You did it!</h2>
+                    <p>Total Attempts: {attempts}</p>
+                    <p>Duration: {formatTime(endTime - startTime)}</p>
+                    <p>
+                        Accuracy:{" "}
+                        {((matched.length / attempts) * 100).toFixed(0)}%
+                    </p>
+                    <button onClick={playAgain}>Play Again</button>
+                </section>
+            ) : (
+                <section>
+                    <p>Attempts: {attempts}</p>
+                    <p>
+                        Time:{" "}
+                        {isGameOver
+                            ? formatTime(endTime - startTime)
+                            : startTime
+                            ? formatTime(Date.now() - startTime)
+                            : "0:00"}
+                    </p>
+                    {attempts > 0 && (
+                        <p>
+                            Accuracy:{" "}
+                            {((matched.length / attempts) * 100).toFixed(0)}%
+                        </p>
+                    )}
+                </section>
+            )}
         </Fragment>
     )
 }
