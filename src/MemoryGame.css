@@ -1,0 +1,7 @@
+.difficulty-buttons button {
+    margin: 0 5px;
+}
+
+.difficulty-buttons .selected {
+    background-color: red;
+}
