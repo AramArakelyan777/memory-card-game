@@ -73,8 +73,19 @@ export default function App() {
     const [attempts, setAttempts] = useState(0)
     const [isGameOver, setIsGameOver] = useState(false)
     const [disableClicks, setDisableClicks] = useState(false)
+    const [now, setNow] = useState(Date.now())
 
     const timeoutRef = useRef(null)
+
+    useEffect(() => {
+        if (!startTime || isGameOver) return
+
+        const interval = setInterval(() => {
+            setNow(Date.now())
+        }, 1000)
+
+        return () => clearInterval(interval)
+    }, [startTime, isGameOver])
 
     useEffect(() => {
         startNewGame()
