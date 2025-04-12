@@ -1,14 +1,10 @@
-import { useState, useEffect, useRef, Fragment } from "react"
+import { useEffect, useRef, Fragment } from "react"
 import "./MemoryGame.css"
-
-const DIFFICULTIES = {
-    Easy: 4,
-    Medium: 6,
-    Hard: 8,
-}
+import { useGameStore } from "./store/store"
+import { DIFFICULTIES } from "./store/store"
 
 const generateCardContent = () => {
-    const emojis = [
+    return [
         "🐶",
         "🍕",
         "🚀",
@@ -59,21 +55,32 @@ const generateCardContent = () => {
         "🧃",
         "📀",
     ]
-    return emojis
 }
 
 export default function App() {
-    const [difficulty, setDifficulty] = useState("Easy")
-    const [gridSize, setGridSize] = useState(DIFFICULTIES[difficulty])
-    const [cards, setCards] = useState([])
-    const [flippedCards, setFlippedCards] = useState([])
-    const [matched, setMatched] = useState([])
-    const [startTime, setStartTime] = useState(null)
-    const [endTime, setEndTime] = useState(null)
-    const [attempts, setAttempts] = useState(0)
-    const [isGameOver, setIsGameOver] = useState(false)
-    const [disableClicks, setDisableClicks] = useState(false)
-    const [now, setNow] = useState(Date.now())
+    const difficulty = useGameStore((state) => state.difficulty)
+    const setDifficulty = useGameStore((state) => state.setDifficulty)
+    const gridSize = useGameStore((state) => state.gridSize)
+    const setGridSize = useGameStore((state) => state.setGridSize)
+    const cards = useGameStore((state) => state.cards)
+    const setCards = useGameStore((state) => state.setCards)
+    const flippedCards = useGameStore((state) => state.flippedCards)
+    const setFlippedCards = useGameStore((state) => state.setFlippedCards)
+    const matchedCards = useGameStore((state) => state.matchedCards)
+    const setMatchedCards = useGameStore((state) => state.setMatchedCards)
+    const startTime = useGameStore((state) => state.startTime)
+    const setStartTime = useGameStore((state) => state.setStartTime)
+    const endTime = useGameStore((state) => state.endTime)
+    const setEndTime = useGameStore((state) => state.setEndTime)
+    const attempts = useGameStore((state) => state.attempts)
+    const increaseAttempts = useGameStore((state) => state.increaseAttempts)
+    const isGameOver = useGameStore((state) => state.isGameOver)
+    const setIsGameOver = useGameStore((state) => state.setIsGameOver)
+    const disableClicks = useGameStore((state) => state.disableClicks)
+    const setDisableClicks = useGameStore((state) => state.setDisableClicks)
+    const now = useGameStore((state) => state.now)
+    const setNow = useGameStore((state) => state.setNow)
+    const resetGame = useGameStore((state) => state.resetGame)
 
     const timeoutRef = useRef(null)
 
@@ -81,20 +88,21 @@ export default function App() {
         if (!startTime || isGameOver) return
 
         const interval = setInterval(() => {
-            setNow(Date.now())
+            setNow()
         }, 1000)
 
         return () => clearInterval(interval)
-    }, [startTime, isGameOver])
+    }, [startTime, endTime, isGameOver, setNow])
 
     useEffect(() => {
-        startNewGame()
-    }, [difficulty])
+        if (gridSize) {
+            startNewGame()
+        }
+    }, [gridSize])
 
     const startNewGame = () => {
-        const size = DIFFICULTIES[difficulty]
-        setGridSize(size)
-        const pairs = (size * size) / 2
+        setGridSize(difficulty)
+        const pairs = (gridSize * gridSize) / 2
 
         const emojiPool = generateCardContent()
             .sort(() => 0.5 - Math.random())
@@ -109,20 +117,17 @@ export default function App() {
             flipped: false,
         }))
 
-        setCards(gameCards)
-        setFlippedCards([])
-        setMatched([])
+        resetGame()
+        setNow()
         setStartTime(Date.now())
-        setEndTime(null)
-        setAttempts(0)
-        setIsGameOver(false)
+        setCards(gameCards)
     }
 
     const handleCardClick = (index) => {
         if (
             flippedCards.length === 2 ||
             flippedCards.includes(index) ||
-            matched.includes(cards[index].content) ||
+            matchedCards.includes(cards[index].content) ||
             disableClicks
         )
             return
@@ -131,16 +136,16 @@ export default function App() {
         setFlippedCards(newFlipped)
 
         if (newFlipped.length === 2) {
-            setAttempts((prev) => prev + 1)
+            increaseAttempts()
             const [first, second] = newFlipped
             if (cards[first].content === cards[second].content) {
-                const newMatched = [...matched, cards[first].content]
-                setMatched(newMatched)
+                const newMatched = [...matchedCards, cards[first].content]
+                setMatchedCards(newMatched)
                 setFlippedCards([])
 
                 if (newMatched.length === cards.length / 2) {
                     setEndTime(Date.now())
-                    setIsGameOver(true)
+                    setIsGameOver()
                 }
             } else {
                 setDisableClicks(true)
@@ -153,17 +158,15 @@ export default function App() {
     }
 
     const changeDifficulty = (newDifficulty) => {
-        if (flippedCards.length > 0 || matched.length > 0) {
+        if (flippedCards.length > 0 || matchedCards.length > 0) {
             const confirmReset = window.confirm(
                 "Are you sure? The current game progress will be lost."
             )
             if (!confirmReset) return
         }
-        setDifficulty(newDifficulty)
-    }
 
-    const playAgain = () => {
-        startNewGame()
+        setDifficulty(newDifficulty)
+        setGridSize(newDifficulty)
     }
 
     const formatTime = (ms) => {
@@ -184,6 +187,7 @@ export default function App() {
                         key={level}
                         onClick={() => changeDifficulty(level)}
                         className={difficulty === level ? "selected" : ""}
+                        disabled={isGameOver}
                     >
                         {level}
                     </button>
@@ -199,7 +203,7 @@ export default function App() {
                         key={card.id}
                         className={`card ${
                             flippedCards.includes(index) ||
-                            matched.includes(card.content)
+                            matchedCards.includes(card.content)
                                 ? "flipped"
                                 : ""
                         }`}
@@ -220,9 +224,9 @@ export default function App() {
                     <p>Duration: {formatTime(endTime - startTime)}</p>
                     <p>
                         Accuracy:{" "}
-                        {((matched.length / attempts) * 100).toFixed(0)}%
+                        {((matchedCards.length / attempts) * 100).toFixed(0)}%
                     </p>
-                    <button onClick={playAgain}>Play Again</button>
+                    <button onClick={startNewGame}>Play Again</button>
                 </section>
             ) : (
                 <section>
@@ -232,13 +236,16 @@ export default function App() {
                         {isGameOver
                             ? formatTime(endTime - startTime)
                             : startTime
-                            ? formatTime(Date.now() - startTime)
+                            ? formatTime(now - startTime)
                             : "0:00"}
                     </p>
                     {attempts > 0 && (
                         <p>
                             Accuracy:{" "}
-                            {((matched.length / attempts) * 100).toFixed(0)}%
+                            {((matchedCards.length / attempts) * 100).toFixed(
+                                0
+                            )}
+                            %
                         </p>
                     )}
                 </section>
