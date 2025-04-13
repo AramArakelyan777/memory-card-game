@@ -6,33 +6,43 @@ import axios from "axios"
 import { useQuery } from "@tanstack/react-query"
 
 export function Game() {
-    const difficulty = useGameStore((state) => state.difficulty)
-    const gridSize = useGameStore((state) => state.gridSize)
-    const setGridSize = useGameStore((state) => state.setGridSize)
-    const cards = useGameStore((state) => state.cards)
-    const setCards = useGameStore((state) => state.setCards)
-    const flippedCards = useGameStore((state) => state.flippedCards)
-    const setFlippedCards = useGameStore((state) => state.setFlippedCards)
-    const matchedCards = useGameStore((state) => state.matchedCards)
-    const setMatchedCards = useGameStore((state) => state.setMatchedCards)
-    const disableClicks = useGameStore((state) => state.disableClicks)
-    const setDisableClicks = useGameStore((state) => state.setDisableClicks)
-    const attempts = useGameStore((state) => state.attempts)
-    const increaseAttempts = useGameStore((state) => state.increaseAttempts)
-    const startTime = useGameStore((state) => state.startTime)
-    const setStartTime = useGameStore((state) => state.setStartTime)
-    const endTime = useGameStore((state) => state.endTime)
-    const setEndTime = useGameStore((state) => state.setEndTime)
-    const isGameOver = useGameStore((state) => state.isGameOver)
-    const setIsGameOver = useGameStore((state) => state.setIsGameOver)
-    const now = useGameStore((state) => state.now)
-    const setNow = useGameStore((state) => state.setNow)
-    const resetGame = useGameStore((state) => state.resetGame)
+    const {
+        difficulty,
+        gridSize,
+        setGridSize,
+        cards,
+        setCards,
+        flippedCards,
+        setFlippedCards,
+        matchedCards,
+        setMatchedCards,
+        disableClicks,
+        setDisableClicks,
+        playerOneAttempts,
+        playerTwoAttempts,
+        increasePlayerOneAttempts,
+        increasePlayerTwoAttempts,
+        playerOneStartTime,
+        setPlayerOneStartTime,
+        playerTwoStartTime,
+        setPlayerTwoStartTime,
+        playerOneEndTime,
+        setPlayerOneEndTime,
+        playerTwoEndTime,
+        setPlayerTwoEndTime,
+        isGameOver,
+        setIsGameOver,
+        now,
+        setNow,
+        resetGame,
+        currentPlayer,
+        setCurrentPlayer,
+        playerOneName,
+        playerTwoName,
+    } = useGameStore()
 
     const timeoutRef = useRef(null)
-
     const navigate = useNavigate()
-
     const pairs = (gridSize * gridSize) / 2
 
     const { data, isLoading, isError, error } = useQuery({
@@ -56,10 +66,10 @@ export function Game() {
     }, [data, gridSize, isError])
 
     useEffect(() => {
-        if (!startTime || isGameOver) return
+        if (!playerOneStartTime || !playerTwoStartTime || isGameOver) return
         const interval = setInterval(() => setNow(), 1000)
         return () => clearInterval(interval)
-    }, [startTime, endTime, isGameOver, setNow])
+    }, [playerOneStartTime, playerTwoStartTime, isGameOver, setNow])
 
     const startNewGame = () => {
         if (!data || isError) {
@@ -67,24 +77,20 @@ export function Game() {
             return
         }
 
-        setGridSize(difficulty)
         resetGame()
+        setGridSize(difficulty)
 
         const duplicated = data.flatMap((image) => [
-            {
-                id: `${image.id}-a`,
-                content: image.download_url,
-            },
-            {
-                id: `${image.id}-b`,
-                content: image.download_url,
-            },
+            { id: `${image.id}-a`, content: image.download_url },
+            { id: `${image.id}-b`, content: image.download_url },
         ])
 
         const shuffled = duplicated.sort(() => 0.5 - Math.random())
 
         setCards(shuffled)
-        setStartTime(Date.now())
+        const now = Date.now()
+        setPlayerOneStartTime(now)
+        setPlayerTwoStartTime(now)
         setNow()
     }
 
@@ -101,15 +107,23 @@ export function Game() {
         setFlippedCards(newFlipped)
 
         if (newFlipped.length === 2) {
-            increaseAttempts()
             const [first, second] = newFlipped
-            if (cards[first].content === cards[second].content) {
+            const isMatch = cards[first].content === cards[second].content
+
+            if (currentPlayer === playerOneName) {
+                increasePlayerOneAttempts()
+            } else {
+                increasePlayerTwoAttempts()
+            }
+
+            if (isMatch) {
                 const newMatched = [...matchedCards, cards[first].content]
                 setMatchedCards(newMatched)
                 setFlippedCards([])
 
                 if (newMatched.length === cards.length / 2) {
-                    setEndTime(Date.now())
+                    setPlayerOneEndTime(Date.now())
+                    setPlayerTwoEndTime(Date.now())
                     setIsGameOver()
                 }
             } else {
@@ -117,6 +131,11 @@ export function Game() {
                 timeoutRef.current = setTimeout(() => {
                     setFlippedCards([])
                     setDisableClicks(false)
+                    setCurrentPlayer(
+                        currentPlayer === playerOneName
+                            ? playerTwoName
+                            : playerOneName
+                    )
                 }, 1000)
             }
         }
@@ -140,9 +159,27 @@ export function Game() {
         navigate("/")
     }
 
+    const getWinner = () => {
+        if (playerOneAttempts < playerTwoAttempts) return playerOneName
+        if (playerTwoAttempts < playerOneAttempts) return playerTwoName
+
+        const playerOneDuration = (playerOneEndTime || now) - playerOneStartTime
+        const playerTwoDuration = (playerTwoEndTime || now) - playerTwoStartTime
+
+        if (playerOneDuration < playerTwoDuration) return playerOneName
+        if (playerTwoDuration < playerOneDuration) return playerTwoName
+
+        return "Tie"
+    }
+
+    const playerOneDuration = (playerOneEndTime || now) - playerOneStartTime
+    const playerTwoDuration = (playerTwoEndTime || now) - playerTwoStartTime
+    const winner = getWinner()
+
     return (
         <Fragment>
             <button onClick={goToMenu}>{"<"}</button>
+            <h3>It's the turn of {currentPlayer}</h3>
 
             {isLoading ? (
                 <h2>Loading...</h2>
@@ -177,37 +214,17 @@ export function Game() {
 
             {isGameOver ? (
                 <section>
-                    <h2>🎉 You did it!</h2>
-                    <p>Total Attempts: {attempts}</p>
-                    <p>Duration: {formatTime(endTime - startTime)}</p>
+                    <h2>🎉 Game Over!</h2>
+                    <p>Winner: {winner === "Tie" ? "It's a tie!" : winner}</p>
                     <p>
-                        Accuracy:{" "}
-                        {((matchedCards.length / attempts) * 100).toFixed(0)}%
+                        {playerOneName} attempts: {playerOneAttempts}
+                    </p>
+                    <p>
+                        {playerTwoName} attempts: {playerTwoAttempts}
                     </p>
                     <button onClick={startNewGame}>Play again</button>
                 </section>
-            ) : (
-                <section>
-                    <p>Attempts: {attempts}</p>
-                    <p>
-                        Time:{" "}
-                        {isGameOver
-                            ? formatTime(endTime - startTime)
-                            : startTime
-                            ? formatTime(now - startTime)
-                            : "0:00"}
-                    </p>
-                    {attempts > 0 && (
-                        <p>
-                            Accuracy:{" "}
-                            {((matchedCards.length / attempts) * 100).toFixed(
-                                0
-                            )}
-                            %
-                        </p>
-                    )}
-                </section>
-            )}
+            ) : null}
         </Fragment>
     )
 }

@@ -12,30 +12,50 @@ export const useGameStore = create((set) => ({
     cards: [],
     flippedCards: [],
     matchedCards: [],
-    startTime: null,
-    endTime: null,
-    attempts: 0,
+    playerOneStartTime: null,
+    playerOneEndTime: null,
+    playerOneAttempts: 0,
+    playerTwoStartTime: null,
+    playerTwoEndTime: null,
+    playerTwoAttempts: 0,
     isGameOver: false,
     disableClicks: false,
     now: Date.now(),
+    currentPlayer: null,
+    playerOneName: "Player1",
+    playerTwoName: "Player2",
 
+    setCurrentPlayer: (player) => set({ currentPlayer: player }),
+    setPlayerNames: ({ playerOneName, playerTwoName }) =>
+        set({ playerOneName, playerTwoName }),
     setDifficulty: (newDifficulty) => set({ difficulty: newDifficulty }),
     setGridSize: (mode) => set({ gridSize: DIFFICULTIES[mode] }),
     setCards: (cards) => set({ cards }),
     setFlippedCards: (cards) => set({ flippedCards: cards }),
     setMatchedCards: (cards) => set({ matchedCards: cards }),
-    setStartTime: (time) => set({ startTime: time }),
-    setEndTime: (time) => set({ endTime: time }),
-    increaseAttempts: () => set((state) => ({ attempts: state.attempts + 1 })),
+
+    setPlayerOneStartTime: (time) => set({ playerOneStartTime: time }),
+    setPlayerOneEndTime: (time) => set({ playerOneEndTime: time }),
+    increasePlayerOneAttempts: () =>
+        set((state) => ({ playerOneAttempts: state.playerOneAttempts + 1 })),
+
+    setPlayerTwoStartTime: (time) => set({ playerTwoStartTime: time }),
+    setPlayerTwoEndTime: (time) => set({ playerTwoEndTime: time }),
+    increasePlayerTwoAttempts: () =>
+        set((state) => ({ playerTwoAttempts: state.playerTwoAttempts + 1 })),
+
     setIsGameOver: () => set({ isGameOver: true }),
     setDisableClicks: (bool) => set({ disableClicks: bool }),
     setNow: () => set({ now: Date.now() }),
     resetGame: () =>
-        set({
+        set((state) => ({
             flippedCards: [],
             matchedCards: [],
-            endTime: null,
-            attempts: 0,
+            playerOneEndTime: null,
+            playerOneAttempts: 0,
+            playerTwoEndTime: null,
+            playerTwoAttempts: 0,
             isGameOver: false,
-        }),
+            currentPlayer: state.currentPlayer,
+        })),
 }))
