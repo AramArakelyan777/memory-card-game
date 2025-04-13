@@ -5,7 +5,6 @@ import { useNavigate } from "react-router"
 export function Start() {
     const setGridSize = useGameStore((state) => state.setGridSize)
     const setDifficulty = useGameStore((state) => state.setDifficulty)
-    const isGameOver = useGameStore((state) => state.isGameOver)
 
     const navigate = useNavigate("/game")
 
@@ -27,7 +26,6 @@ export function Start() {
                             changeDifficulty(level)
                             navigate("/game")
                         }}
-                        disabled={isGameOver}
                     >
                         {level}
                     </button>

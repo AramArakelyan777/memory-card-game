@@ -2,66 +2,15 @@ import { Fragment, useRef, useEffect } from "react"
 import "../MemoryGame.css"
 import { useGameStore } from "../store/store"
 import { useNavigate } from "react-router"
-
-const generateCardContent = () => {
-    return [
-        "🐶",
-        "🍕",
-        "🚀",
-        "🌈",
-        "🎉",
-        "🧠",
-        "🐱",
-        "🌸",
-        "🔥",
-        "🍩",
-        "💎",
-        "📚",
-        "⚽",
-        "🎮",
-        "🪐",
-        "🍓",
-        "🎧",
-        "🌍",
-        "🦄",
-        "🍔",
-        "🐸",
-        "🏆",
-        "📸",
-        "🧩",
-        "🐵",
-        "🍇",
-        "💡",
-        "🎲",
-        "🌙",
-        "🍀",
-        "👾",
-        "🐥",
-        "🍉",
-        "🛸",
-        "🌟",
-        "🥑",
-        "🎵",
-        "🧁",
-        "🎯",
-        "🚲",
-        "🚁",
-        "🐙",
-        "🍋",
-        "🐚",
-        "🪴",
-        "🎻",
-        "🏖",
-        "🧃",
-        "📀",
-    ]
-}
+import axios from "axios"
+import { useQuery } from "@tanstack/react-query"
 
 export function Game() {
     const difficulty = useGameStore((state) => state.difficulty)
     const gridSize = useGameStore((state) => state.gridSize)
     const setGridSize = useGameStore((state) => state.setGridSize)
     const cards = useGameStore((state) => state.cards)
+    const setCards = useGameStore((state) => state.setCards)
     const flippedCards = useGameStore((state) => state.flippedCards)
     const setFlippedCards = useGameStore((state) => state.setFlippedCards)
     const matchedCards = useGameStore((state) => state.matchedCards)
@@ -79,27 +28,65 @@ export function Game() {
     const now = useGameStore((state) => state.now)
     const setNow = useGameStore((state) => state.setNow)
     const resetGame = useGameStore((state) => state.resetGame)
-    const setCards = useGameStore((state) => state.setCards)
 
     const timeoutRef = useRef(null)
 
     const navigate = useNavigate()
 
+    const pairs = (gridSize * gridSize) / 2
+
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: ["photos", gridSize],
+        enabled: !!gridSize,
+        queryFn: async () => {
+            const page = Math.round(Math.random() * 29 + 1)
+            const response = await axios.get(
+                `${
+                    import.meta.env.VITE_CARD_IMAGES_API_URL
+                }?page=${page}&limit=${pairs}`
+            )
+            return response.data
+        },
+    })
+
+    useEffect(() => {
+        if (data && gridSize && !isError) {
+            startNewGame()
+        }
+    }, [data, gridSize, isError])
+
     useEffect(() => {
         if (!startTime || isGameOver) return
-
-        const interval = setInterval(() => {
-            setNow()
-        }, 1000)
-
+        const interval = setInterval(() => setNow(), 1000)
         return () => clearInterval(interval)
     }, [startTime, endTime, isGameOver, setNow])
 
-    useEffect(() => {
-        if (gridSize) {
-            startNewGame()
+    const startNewGame = () => {
+        if (!data || isError) {
+            console.error("Error fetching images:", error)
+            return
         }
-    }, [gridSize])
+
+        setGridSize(difficulty)
+        resetGame()
+
+        const duplicated = data.flatMap((image) => [
+            {
+                id: `${image.id}-a`,
+                content: image.download_url,
+            },
+            {
+                id: `${image.id}-b`,
+                content: image.download_url,
+            },
+        ])
+
+        const shuffled = duplicated.sort(() => 0.5 - Math.random())
+
+        setCards(shuffled)
+        setStartTime(Date.now())
+        setNow()
+    }
 
     const handleCardClick = (index) => {
         if (
@@ -135,29 +122,6 @@ export function Game() {
         }
     }
 
-    const startNewGame = () => {
-        setGridSize(difficulty)
-        const pairs = (gridSize * gridSize) / 2
-
-        const emojiPool = generateCardContent()
-            .sort(() => 0.5 - Math.random())
-            .slice(0, pairs)
-        const duplicated = [...emojiPool, ...emojiPool].sort(
-            () => 0.5 - Math.random()
-        )
-
-        const gameCards = duplicated.map((content, index) => ({
-            id: index,
-            content,
-            flipped: false,
-        }))
-
-        resetGame()
-        setNow()
-        setStartTime(Date.now())
-        setCards(gameCards)
-    }
-
     const formatTime = (ms) => {
         const seconds = Math.floor((ms || 0) / 1000)
         return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(
@@ -180,28 +144,36 @@ export function Game() {
         <Fragment>
             <button onClick={goToMenu}>{"<"}</button>
 
-            <section
-                className="game-board"
-                style={{ gridTemplateColumns: `repeat(${gridSize}, 100px)` }}
-            >
-                {cards.map((card, index) => (
-                    <div
-                        key={card.id}
-                        className={`card ${
-                            flippedCards.includes(index) ||
-                            matchedCards.includes(card.content)
-                                ? "flipped"
-                                : ""
-                        }`}
-                        onClick={() => handleCardClick(index)}
-                    >
-                        <div className="card-inner">
-                            <div className="card-front">❓</div>
-                            <div className="card-back">{card.content}</div>
+            {isLoading ? (
+                <h2>Loading...</h2>
+            ) : (
+                <section
+                    className="game-board"
+                    style={{
+                        gridTemplateColumns: `repeat(${gridSize}, 100px)`,
+                    }}
+                >
+                    {cards.map((card, index) => (
+                        <div
+                            key={card.id}
+                            className={`card ${
+                                flippedCards.includes(index) ||
+                                matchedCards.includes(card.content)
+                                    ? "flipped"
+                                    : ""
+                            }`}
+                            onClick={() => handleCardClick(index)}
+                        >
+                            <div className="card-inner">
+                                <div className="card-front">❓</div>
+                                <div className="card-back">
+                                    <img src={card.content} alt="card" />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                ))}
-            </section>
+                    ))}
+                </section>
+            )}
 
             {isGameOver ? (
                 <section>
@@ -217,7 +189,6 @@ export function Game() {
             ) : (
                 <section>
                     <p>Attempts: {attempts}</p>
-
                     <p>
                         Time:{" "}
                         {isGameOver
@@ -226,7 +197,6 @@ export function Game() {
                             ? formatTime(now - startTime)
                             : "0:00"}
                     </p>
-
                     {attempts > 0 && (
                         <p>
                             Accuracy:{" "}
