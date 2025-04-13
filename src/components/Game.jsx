@@ -5,6 +5,15 @@ import { useNavigate } from "react-router"
 import axios from "axios"
 import { useQuery } from "@tanstack/react-query"
 
+function shuffleArray(array) {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+}
+
 export function Game() {
     const {
         difficulty,
@@ -85,7 +94,7 @@ export function Game() {
             { id: `${image.id}-b`, content: image.download_url },
         ])
 
-        const shuffled = duplicated.sort(() => 0.5 - Math.random())
+        const shuffled = shuffleArray(duplicated)
 
         setCards(shuffled)
         const now = Date.now()
@@ -122,8 +131,12 @@ export function Game() {
                 setFlippedCards([])
 
                 if (newMatched.length === cards.length / 2) {
-                    setPlayerOneEndTime(Date.now())
-                    setPlayerTwoEndTime(Date.now())
+                    const endTime = Date.now()
+                    if (currentPlayer === playerOneName) {
+                        setPlayerOneEndTime(endTime)
+                    } else {
+                        setPlayerTwoEndTime(endTime)
+                    }
                     setIsGameOver()
                 }
             } else {
@@ -160,14 +173,21 @@ export function Game() {
     }
 
     const getWinner = () => {
+        const p1Duration =
+            playerOneEndTime && playerOneStartTime
+                ? playerOneEndTime - playerOneStartTime
+                : now - playerOneStartTime
+
+        const p2Duration =
+            playerTwoEndTime && playerTwoStartTime
+                ? playerTwoEndTime - playerTwoStartTime
+                : now - playerTwoStartTime
+
         if (playerOneAttempts < playerTwoAttempts) return playerOneName
         if (playerTwoAttempts < playerOneAttempts) return playerTwoName
 
-        const playerOneDuration = (playerOneEndTime || now) - playerOneStartTime
-        const playerTwoDuration = (playerTwoEndTime || now) - playerTwoStartTime
-
-        if (playerOneDuration < playerTwoDuration) return playerOneName
-        if (playerTwoDuration < playerOneDuration) return playerTwoName
+        if (p1Duration < p2Duration) return playerOneName
+        if (p2Duration < p1Duration) return playerTwoName
 
         return "Tie"
     }
@@ -217,10 +237,12 @@ export function Game() {
                     <h2>🎉 Game Over!</h2>
                     <p>Winner: {winner === "Tie" ? "It's a tie!" : winner}</p>
                     <p>
-                        {playerOneName} attempts: {playerOneAttempts}
+                        {playerOneName} attempts: {playerOneAttempts} <br />
+                        Duration: {formatTime(playerOneDuration)}
                     </p>
                     <p>
-                        {playerTwoName} attempts: {playerTwoAttempts}
+                        {playerTwoName} attempts: {playerTwoAttempts} <br />
+                        Duration: {formatTime(playerTwoDuration)}
                     </p>
                     <button onClick={startNewGame}>Play again</button>
                 </section>
