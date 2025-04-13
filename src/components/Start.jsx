@@ -6,8 +6,6 @@ export function Start() {
     const setGridSize = useGameStore((state) => state.setGridSize)
     const setDifficulty = useGameStore((state) => state.setDifficulty)
     const isGameOver = useGameStore((state) => state.isGameOver)
-    const flippedCards = useGameStore((state) => state.flippedCards)
-    const matchedCards = useGameStore((state) => state.matchedCards)
 
     const navigate = useNavigate("/game")
 
